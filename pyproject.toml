@@ -1,0 +1,11 @@
+[project]
+name = "wave-vision"
+version = "0.1.0"
+description = "Wave Vision is a computer-vision app that takes live hand gestures and translates them to mouse actions."
+readme = "README.md"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "mediapipe>=0.10.21",
+    "opencv-python>=4.11.0.86",
+    "pyautogui>=0.9.54",
+]
