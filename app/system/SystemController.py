@@ -10,12 +10,29 @@ class SystemController:
         self.camera_controller = camera_controller
         self.tracking_controller = tracking_controller
         self.cursor_controller = cursor_controller
+        self.is_running = False
+        self.was_pressed = False
 
     def start(self):
-        start = time.time()
-        while True:
-            frame = self.camera_controller.get_frame()
-            if frame is not None:
-                tracking_result = self.tracking_controller.track(frame, int((time.time() - start) * 1000))
-                if tracking_result is not None:
-                    self.cursor_controller.move_to(tracking_result.cursor_position_x, tracking_result.cursor_position_y)
+        self.is_running = True
+
+    def stop(self):
+        self.is_running = False
+
+    def update(self):
+        if not self.is_running:
+            return
+
+        frame = self.camera_controller.get_frame()
+        if frame is not None:
+            timestamp_ms = int(time.time() * 1000)
+            tracking_result = self.tracking_controller.track(frame, timestamp_ms)
+            if tracking_result is not None:
+                self.cursor_controller.move_to(tracking_result.cursor_position_x, tracking_result.cursor_position_y)
+
+                if tracking_result.pressed and not self.was_pressed:
+                    self.cursor_controller.grab()
+                    self.was_pressed = True
+                elif not tracking_result.pressed and self.was_pressed:
+                    self.cursor_controller.release()
+                    self.was_pressed = False

@@ -1,7 +1,6 @@
-import cv2
 import numpy as np
 import mediapipe as mp
-from mediapipe.tasks import python
+import pyautogui
 from mediapipe.tasks.python.vision.hand_landmarker import HandLandmarkerResult
 
 from app.tracking.TrackingParams import TrackingParams
@@ -11,43 +10,51 @@ from app.tracking.TrackingResult import TrackingResult
 class TrackingController:
     def __init__(self, params: TrackingParams):
         self.params = params
+        self.last_result = None
+        self.screen_width, self.screen_height = pyautogui.size()
+        self.smoothed_x = None
+        self.smoothed_y = None
+        self.alpha = 0.3
 
-        base_options = mp.tasks.BaseOptions
-        hand_landmarker = mp.tasks.vision.HandLandmarker
-        hand_landmarker_options = mp.tasks.vision.HandLandmarkerOptions
-        vision_running_mode = mp.tasks.vision.RunningMode
-
-        options = hand_landmarker_options(
-            base_options=base_options(
-                model_asset_path=self.params.model_path
-            ),
+        options = mp.tasks.vision.HandLandmarkerOptions(
+            base_options=mp.tasks.BaseOptions(model_asset_path=params.model_path),
             num_hands=1,
-            running_mode=vision_running_mode.LIVE_STREAM,
-            result_callback=lambda result, img, time_ms: self.process_result(result, img, time_ms)
+            running_mode=mp.tasks.vision.RunningMode.LIVE_STREAM,
+            result_callback=self.process_result
         )
 
-        self.landmarker = hand_landmarker.create_from_options(options)
-        self.last_result = None
-
+        self.landmarker = mp.tasks.vision.HandLandmarker.create_from_options(options)
 
     def process_result(self, result: HandLandmarkerResult, frame: mp.Image, timestamp_ms: int):
-        print(f"Detected {len(result.hand_landmarks)} hands.")
-
-        cv2.namedWindow("Image", cv2.WINDOW_NORMAL)
-        cv2.imshow("Image", np.copy(frame.numpy_view()))
-
-        if len(result.hand_landmarks) > 0:
+        if result.hand_landmarks:
             landmarks = result.hand_landmarks[0]
-            x_sum = sum(landmark.x for landmark in landmarks)
-            y_sum = sum(landmark.y for landmark in landmarks)
-            x_avg = x_sum / len(landmarks)
-            y_avg = y_sum / len(landmarks)
+
+            thumb_tip = landmarks[4]
+            index_tip = landmarks[8]
+
+            x_norm = (thumb_tip.x + index_tip.x) / 2
+            y_norm = (thumb_tip.y + index_tip.y) / 2
+
+            x_screen = (1 - x_norm) * self.screen_width
+            y_screen = y_norm * self.screen_height
+
+            if self.smoothed_x is None:
+                self.smoothed_x = x_screen
+                self.smoothed_y = y_screen
+            else:
+                self.smoothed_x = self.alpha * x_screen + (1 - self.alpha) * self.smoothed_x
+                self.smoothed_y = self.alpha * y_screen + (1 - self.alpha) * self.smoothed_y
+
+            distance = ((thumb_tip.x - index_tip.x) ** 2 + (thumb_tip.y - index_tip.y) ** 2) ** 0.5
+            pressed = distance < 0.10
 
             self.last_result = TrackingResult(
-                cursor_position_x=int(x_avg),
-                cursor_position_y=int(y_avg),
-                pressed=False
+                cursor_position_x=int(self.smoothed_x),
+                cursor_position_y=int(self.smoothed_y),
+                pressed=pressed
             )
+        else:
+            self.last_result = None
 
     def track(self, frame: np.ndarray, timestamp_ms: int) -> TrackingResult | None:
         mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=frame)

@@ -15,7 +15,7 @@ class CameraController:
         ret, frame = self.camera.read()
         if not ret:
             return None
-        return frame
+        return cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
 
     def is_open(self) -> bool:
         return self.camera.isOpened()
