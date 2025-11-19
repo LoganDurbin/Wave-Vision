@@ -15,6 +15,8 @@ class TrackingController:
         self.smoothed_x = None
         self.smoothed_y = None
         self.alpha = 0.3
+        self.sensitivity = 1.0
+        self.pinch_threshold = 0.05
 
         options = mp.tasks.vision.HandLandmarkerOptions(
             base_options=mp.tasks.BaseOptions(model_asset_path=params.model_path),
@@ -35,8 +37,11 @@ class TrackingController:
             x_norm = (thumb_tip.x + index_tip.x) / 2
             y_norm = (thumb_tip.y + index_tip.y) / 2
 
-            x_screen = (1 - x_norm) * self.screen_width
-            y_screen = y_norm * self.screen_height
+            x_screen = (1 - x_norm) * self.screen_width * self.sensitivity
+            y_screen = y_norm * self.screen_height * self.sensitivity
+
+            x_screen = max(0, min(self.screen_width, x_screen))
+            y_screen = max(0, min(self.screen_height, y_screen))
 
             if self.smoothed_x is None:
                 self.smoothed_x = x_screen
@@ -46,7 +51,7 @@ class TrackingController:
                 self.smoothed_y = self.alpha * y_screen + (1 - self.alpha) * self.smoothed_y
 
             distance = ((thumb_tip.x - index_tip.x) ** 2 + (thumb_tip.y - index_tip.y) ** 2) ** 0.5
-            pressed = distance < 0.10
+            pressed = distance < self.pinch_threshold
 
             self.last_result = TrackingResult(
                 cursor_position_x=int(self.smoothed_x),
