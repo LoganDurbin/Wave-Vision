@@ -1,10 +1,167 @@
 from PySide6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout,
                                 QHBoxLayout, QLabel, QComboBox, QPushButton,
                                 QTextEdit, QGroupBox, QDoubleSpinBox, QInputDialog,
-                                QMessageBox)
-from PySide6.QtGui import QFont
+                                QMessageBox, QFrame)
+from PySide6.QtGui import QFont, QPainter, QColor, QPen
+from PySide6.QtCore import Qt
 import cv2
 import sys
+
+
+class HandVisualizationWidget(QFrame):
+    EDGE_THRESHOLD = 10  # pixels threshold for edge detection
+    
+    def __init__(self, parent=None, on_bounds_changed=None):
+        super().__init__(parent)
+        self.setMinimumSize(200, 150)
+        self.setMaximumSize(200, 150)
+        self.setStyleSheet("background-color: black; border: 1px solid gray;")
+        self.landmarks = None
+        self.area_bounds = (0.0, 0.0, 1.0, 1.0)  # (top_left_x, top_left_y, bottom_right_x, bottom_right_y)
+        self.on_bounds_changed = on_bounds_changed
+
+        self.dragging = None  # None, 'left', 'right', 'top', 'bottom'
+        self.setMouseTracking(True)
+    
+    def set_landmarks(self, landmarks: list[tuple[float, float]] | None):
+        self.landmarks = landmarks
+        self.update()
+    
+    def set_area_bounds(self, bounds: tuple[float, float, float, float]):
+        self.area_bounds = bounds
+        self.update()
+    
+    def _get_rect_coords(self):
+        width = self.width()
+        height = self.height()
+        # Mirror x coordinate to match camera view
+        x1 = int((1 - self.area_bounds[2]) * width)  # bottom_right_x becomes left
+        y1 = int(self.area_bounds[1] * height)        # top_left_y
+        x2 = int((1 - self.area_bounds[0]) * width)  # top_left_x becomes right
+        y2 = int(self.area_bounds[3] * height)        # bottom_right_y
+        return x1, y1, x2, y2
+    
+    def _detect_edge(self, pos):
+        x, y = pos.x(), pos.y()
+        x1, y1, x2, y2 = self._get_rect_coords()
+        threshold = self.EDGE_THRESHOLD
+
+        in_v_range = y1 - threshold <= y <= y2 + threshold
+        in_h_range = x1 - threshold <= x <= x2 + threshold
+
+        near_left = abs(x - x1) <= threshold and in_v_range
+        near_right = abs(x - x2) <= threshold and in_v_range
+        near_top = abs(y - y1) <= threshold and in_h_range
+        near_bottom = abs(y - y2) <= threshold and in_h_range
+        
+        if near_left:
+            return 'left'
+        elif near_right:
+            return 'right'
+        elif near_top:
+            return 'top'
+        elif near_bottom:
+            return 'bottom'
+        return None
+    
+    def mousePressEvent(self, event):
+        if event.button() == Qt.LeftButton:
+            edge = self._detect_edge(event.pos())
+            if edge:
+                self.dragging = edge
+        super().mousePressEvent(event)
+    
+    def mouseReleaseEvent(self, event):
+        if event.button() == Qt.LeftButton and self.dragging:
+            self.dragging = None
+            # Notify that bounds changed
+            if self.on_bounds_changed:
+                self.on_bounds_changed(self.area_bounds)
+        super().mouseReleaseEvent(event)
+    
+    def mouseMoveEvent(self, event):
+        pos = event.pos()
+        width = self.width()
+        height = self.height()
+        
+        if self.dragging:
+            norm_x = max(0.0, min(1.0, pos.x() / width))
+            norm_y = max(0.0, min(1.0, pos.y() / height))
+
+            actual_x = 1 - norm_x
+            
+            top_left_x, top_left_y, bottom_right_x, bottom_right_y = self.area_bounds
+            
+            min_size = 0.1  # Minimum area size
+            
+            if self.dragging == 'left':
+                # Left edge in widget = bottom_right_x in actual coords
+                new_val = max(top_left_x + min_size, min(1.0, actual_x))
+                bottom_right_x = new_val
+            elif self.dragging == 'right':
+                # Right edge in widget = top_left_x in actual coords
+                new_val = max(0.0, min(bottom_right_x - min_size, actual_x))
+                top_left_x = new_val
+            elif self.dragging == 'top':
+                new_val = max(0.0, min(bottom_right_y - min_size, norm_y))
+                top_left_y = new_val
+            elif self.dragging == 'bottom':
+                new_val = max(top_left_y + min_size, min(1.0, norm_y))
+                bottom_right_y = new_val
+            
+            self.area_bounds = (top_left_x, top_left_y, bottom_right_x, bottom_right_y)
+            self.update()
+        else:
+            edge = self._detect_edge(pos)
+            if edge in ('left', 'right'):
+                self.setCursor(Qt.SizeHorCursor)
+            elif edge in ('top', 'bottom'):
+                self.setCursor(Qt.SizeVerCursor)
+            else:
+                self.setCursor(Qt.ArrowCursor)
+        
+        super().mouseMoveEvent(event)
+    
+    def paintEvent(self, event):
+        super().paintEvent(event)
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.Antialiasing)
+        
+        width = self.width()
+        height = self.height()
+        
+        x1, y1, x2, y2 = self._get_rect_coords()
+
+        pen = QPen(QColor(255, 255, 255))
+        pen.setWidth(2)
+        painter.setPen(pen)
+        painter.setBrush(Qt.NoBrush)
+        
+        painter.drawRect(x1, y1, x2 - x1, y2 - y1)
+
+        handle_size = 6
+        painter.setBrush(QColor(255, 255, 255))
+        mid_y = (y1 + y2) // 2
+        mid_x = (x1 + x2) // 2
+        # Left handle
+        painter.drawRect(x1 - handle_size//2, mid_y - handle_size//2, handle_size, handle_size)
+        # Right handle
+        painter.drawRect(x2 - handle_size//2, mid_y - handle_size//2, handle_size, handle_size)
+        # Top handle
+        painter.drawRect(mid_x - handle_size//2, y1 - handle_size//2, handle_size, handle_size)
+        # Bottom handle
+        painter.drawRect(mid_x - handle_size//2, y2 - handle_size//2, handle_size, handle_size)
+
+        if self.landmarks:
+            painter.setPen(Qt.NoPen)
+            painter.setBrush(QColor(255, 0, 0))
+            
+            for lm_x, lm_y in self.landmarks:
+                x = int((1 - lm_x) * width)
+                y = int(lm_y * height)
+                painter.drawEllipse(x - 3, y - 3, 6, 6)
+        
+        painter.end()
 
 
 class UIController:
@@ -19,7 +176,7 @@ class UIController:
 
         self.window = QMainWindow()
         self.window.setWindowTitle("Wave Vision")
-        self.window.setFixedSize(600, 550)
+        self.window.setFixedSize(650, 750)
 
         self._setup_ui()
 
@@ -142,6 +299,27 @@ class UIController:
         controls_group.setLayout(controls_layout)
         main_layout.addWidget(controls_group)
 
+        # Area Mapping group with visualization
+        area_group = QGroupBox("Area Mapping (drag edges to resize)")
+        area_layout = QHBoxLayout()
+        
+        # Visualization widget on the left with drag-to-resize
+        self.hand_viz = HandVisualizationWidget(on_bounds_changed=self._on_area_bounds_changed)
+        area_layout.addWidget(self.hand_viz)
+        
+        # Buttons on the right
+        area_buttons_layout = QVBoxLayout()
+        
+        self.reset_area_button = QPushButton("Reset Area")
+        self.reset_area_button.clicked.connect(self._on_reset_area)
+        
+        area_buttons_layout.addWidget(self.reset_area_button)
+        area_buttons_layout.addStretch()
+        
+        area_layout.addLayout(area_buttons_layout)
+        area_group.setLayout(area_layout)
+        main_layout.addWidget(area_group)
+
         status_group = QGroupBox("Status")
         status_layout = QVBoxLayout()
 
@@ -214,6 +392,21 @@ class UIController:
 
     def _on_stop_clicked(self):
         self.app_controller.stop_tracking()
+
+    def _on_area_bounds_changed(self, bounds: tuple[float, float, float, float]):
+        """Called when the user drags the area bounds in the visualization widget."""
+        self.app_controller.update_area_bounds(bounds)
+
+    def _on_reset_area(self):
+        self.app_controller.reset_area()
+        self._update_area_visualization()
+
+    def _update_area_visualization(self):
+        bounds = self.app_controller.get_area_bounds()
+        self.hand_viz.set_area_bounds(bounds)
+
+    def update_hand_visualization(self, landmarks: list[tuple[float, float]] | None):
+        self.hand_viz.set_landmarks(landmarks)
 
     def load_profiles(self, profiles: list[str], current_profile: str):
         self.profile_combo.clear()
