@@ -195,6 +195,14 @@ class UIController:
         main_layout.setContentsMargins(20, 20, 20, 20)
         main_layout.setSpacing(15)
 
+        # Top bar with Help button
+        top_bar = QHBoxLayout()
+        top_bar.addStretch()
+        self.help_button = QPushButton("Help")
+        self.help_button.clicked.connect(self._on_help_clicked)
+        top_bar.addWidget(self.help_button)
+        main_layout.addLayout(top_bar)
+
         profile_group = QGroupBox("Profile")
         profile_layout = QVBoxLayout()
 
@@ -334,6 +342,21 @@ class UIController:
         main_layout.addStretch()
 
         self.update_status("Ready. Select camera and click 'Start Tracking'.")
+
+    def _on_help_clicked(self):  # pragma: no cover
+        help_text = (
+            "How to use Wave Vision:\n\n"
+            "1. Select a camera index under Settings.\n"
+            "2. Adjust Sensitivity and Smoothing to your preference.\n"
+            "3. Set the Pinch Threshold for click detection.\n"
+            "4. Use Area Mapping to resize the active tracking area.\n"
+            "5. Click 'Start Tracking' to begin. Move your hand to control the cursor.\n"
+            "6. Pinch (move thumb to index) to perform a click.\n"
+            "7. Click 'Stop Tracking' to end.\n\n"
+            "Profiles:\n"
+            "• Create, Save, Rename, and Delete profiles to store settings for later use.\n"
+        )
+        QMessageBox.information(self.window, "Wave Vision Help", help_text)
 
     def _on_profile_selected(self):  # pragma: no cover
         profile_name = self.profile_combo.currentText()
