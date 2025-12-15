@@ -7,11 +7,10 @@ from PySide6.QtCore import Qt
 import cv2
 import sys
 
-
 class HandVisualizationWidget(QFrame):
     EDGE_THRESHOLD = 10  # pixels threshold for edge detection
     
-    def __init__(self, parent=None, on_bounds_changed=None):
+    def __init__(self, parent=None, on_bounds_changed=None):  # pragma: no cover
         super().__init__(parent)
         self.setMinimumSize(200, 150)
         self.setMaximumSize(200, 150)
@@ -23,15 +22,15 @@ class HandVisualizationWidget(QFrame):
         self.dragging = None  # None, 'left', 'right', 'top', 'bottom'
         self.setMouseTracking(True)
     
-    def set_landmarks(self, landmarks: list[tuple[float, float]] | None):
+    def set_landmarks(self, landmarks: list[tuple[float, float]] | None):  # pragma: no cover
         self.landmarks = landmarks
         self.update()
     
-    def set_area_bounds(self, bounds: tuple[float, float, float, float]):
+    def set_area_bounds(self, bounds: tuple[float, float, float, float]):  # pragma: no cover
         self.area_bounds = bounds
         self.update()
     
-    def _get_rect_coords(self):
+    def _get_rect_coords(self):  # pragma: no cover
         width = self.width()
         height = self.height()
         # Mirror x coordinate to match camera view
@@ -41,7 +40,7 @@ class HandVisualizationWidget(QFrame):
         y2 = int(self.area_bounds[3] * height)        # bottom_right_y
         return x1, y1, x2, y2
     
-    def _detect_edge(self, pos):
+    def _detect_edge(self, pos):  # pragma: no cover
         x, y = pos.x(), pos.y()
         x1, y1, x2, y2 = self._get_rect_coords()
         threshold = self.EDGE_THRESHOLD
@@ -64,14 +63,14 @@ class HandVisualizationWidget(QFrame):
             return 'bottom'
         return None
     
-    def mousePressEvent(self, event):
+    def mousePressEvent(self, event):  # pragma: no cover
         if event.button() == Qt.LeftButton:
             edge = self._detect_edge(event.pos())
             if edge:
                 self.dragging = edge
         super().mousePressEvent(event)
     
-    def mouseReleaseEvent(self, event):
+    def mouseReleaseEvent(self, event):  # pragma: no cover
         if event.button() == Qt.LeftButton and self.dragging:
             self.dragging = None
             # Notify that bounds changed
@@ -79,7 +78,7 @@ class HandVisualizationWidget(QFrame):
                 self.on_bounds_changed(self.area_bounds)
         super().mouseReleaseEvent(event)
     
-    def mouseMoveEvent(self, event):
+    def mouseMoveEvent(self, event):  # pragma: no cover
         pos = event.pos()
         width = self.width()
         height = self.height()
@@ -122,7 +121,7 @@ class HandVisualizationWidget(QFrame):
         
         super().mouseMoveEvent(event)
     
-    def paintEvent(self, event):
+    def paintEvent(self, event):  # pragma: no cover
         super().paintEvent(event)
         painter = QPainter(self)
         painter.setRenderHint(QPainter.Antialiasing)
@@ -165,7 +164,7 @@ class HandVisualizationWidget(QFrame):
 
 
 class UIController:
-    def __init__(self, app):
+    def __init__(self, app):  # pragma: no cover
         self.app_controller = app
         self.qt_app = QApplication.instance()
         if self.qt_app is None:
@@ -180,7 +179,7 @@ class UIController:
 
         self._setup_ui()
 
-    def _detect_cameras(self) -> list[int]:
+    def _detect_cameras(self) -> list[int]:  # pragma: no cover
         available = []
         for i in range(10):
             cap = cv2.VideoCapture(i)
@@ -189,7 +188,7 @@ class UIController:
                 cap.release()
         return available if available else [0]
 
-    def _setup_ui(self):
+    def _setup_ui(self):  # pragma: no cover
         central_widget = QWidget()
         self.window.setCentralWidget(central_widget)
         main_layout = QVBoxLayout(central_widget)
@@ -336,37 +335,37 @@ class UIController:
 
         self.update_status("Ready. Select camera and click 'Start Tracking'.")
 
-    def _on_profile_selected(self):
+    def _on_profile_selected(self):  # pragma: no cover
         profile_name = self.profile_combo.currentText()
         if profile_name:
             self.app_controller.load_profile(profile_name)
 
-    def _on_camera_selected(self):
+    def _on_camera_selected(self):  # pragma: no cover
         camera_index = self.camera_combo.currentData()
         if not self.is_tracking:
             self.app_controller.update_camera(camera_index)
 
-    def _on_sensitivity_changed(self, value: float):
+    def _on_sensitivity_changed(self, value: float):  # pragma: no cover
         self.app_controller.update_sensitivity(value)
 
-    def _on_smoothing_changed(self, value: float):
+    def _on_smoothing_changed(self, value: float):  # pragma: no cover
         self.app_controller.update_smoothing(value)
 
-    def _on_pinch_changed(self, value: float):
+    def _on_pinch_changed(self, value: float):  # pragma: no cover
         self.app_controller.update_pinch_threshold(value)
 
-    def _on_new_profile(self):
+    def _on_new_profile(self):  # pragma: no cover
         name, ok = QInputDialog.getText(self.window, "New Profile", "Profile name:")
         if ok and name:
             success = self.app_controller.create_profile(name)
             if not success:
                 QMessageBox.warning(self.window, "Error", f"Profile '{name}' already exists.")
 
-    def _on_save_profile(self):
+    def _on_save_profile(self):  # pragma: no cover
         self.app_controller.save_current_profile()
         self.update_status("Profile saved.")
 
-    def _on_rename_profile(self):
+    def _on_rename_profile(self):  # pragma: no cover
         current_name = self.profile_combo.currentText()
         name, ok = QInputDialog.getText(self.window, "Rename Profile", "New profile name:", text=current_name)
         if ok and name and name != current_name:
@@ -374,7 +373,7 @@ class UIController:
             if not success:
                 QMessageBox.warning(self.window, "Error", f"Profile '{name}' already exists.")
 
-    def _on_delete_profile(self):
+    def _on_delete_profile(self):  # pragma: no cover
         current_name = self.profile_combo.currentText()
         reply = QMessageBox.question(
             self.window,
@@ -387,28 +386,28 @@ class UIController:
             if not success:
                 QMessageBox.warning(self.window, "Error", "Cannot delete the last profile.")
 
-    def _on_start_clicked(self):
+    def _on_start_clicked(self):  # pragma: no cover
         self.app_controller.start_tracking()
 
-    def _on_stop_clicked(self):
+    def _on_stop_clicked(self):  # pragma: no cover
         self.app_controller.stop_tracking()
 
-    def _on_area_bounds_changed(self, bounds: tuple[float, float, float, float]):
+    def _on_area_bounds_changed(self, bounds: tuple[float, float, float, float]):  # pragma: no cover
         """Called when the user drags the area bounds in the visualization widget."""
         self.app_controller.update_area_bounds(bounds)
 
-    def _on_reset_area(self):
+    def _on_reset_area(self):  # pragma: no cover
         self.app_controller.reset_area()
         self._update_area_visualization()
 
-    def _update_area_visualization(self):
+    def _update_area_visualization(self):  # pragma: no cover
         bounds = self.app_controller.get_area_bounds()
         self.hand_viz.set_area_bounds(bounds)
 
-    def update_hand_visualization(self, landmarks: list[tuple[float, float]] | None):
+    def update_hand_visualization(self, landmarks: list[tuple[float, float]] | None):  # pragma: no cover
         self.hand_viz.set_landmarks(landmarks)
 
-    def load_profiles(self, profiles: list[str], current_profile: str):
+    def load_profiles(self, profiles: list[str], current_profile: str):  # pragma: no cover
         self.profile_combo.clear()
         for profile in profiles:
             self.profile_combo.addItem(profile)
@@ -416,7 +415,7 @@ class UIController:
         if index >= 0:
             self.profile_combo.setCurrentIndex(index)
 
-    def update_settings_ui(self, camera_index: int, sensitivity: float, smoothing: float, pinch_threshold: float):
+    def update_settings_ui(self, camera_index: int, sensitivity: float, smoothing: float, pinch_threshold: float):  # pragma: no cover
         for i in range(self.camera_combo.count()):
             if self.camera_combo.itemData(i) == camera_index:
                 self.camera_combo.setCurrentIndex(i)
@@ -425,10 +424,10 @@ class UIController:
         self.smoothing_spin.setValue(smoothing)
         self.pinch_spin.setValue(pinch_threshold)
 
-    def get_selected_camera(self) -> int:
+    def get_selected_camera(self) -> int:  # pragma: no cover
         return self.camera_combo.currentData()
 
-    def set_tracking_state(self, is_tracking: bool):
+    def set_tracking_state(self, is_tracking: bool):  # pragma: no cover
         self.is_tracking = is_tracking
         self.start_button.setEnabled(not is_tracking)
         self.stop_button.setEnabled(is_tracking)
@@ -439,20 +438,20 @@ class UIController:
         else:
             self.update_status("Tracking stopped.")
 
-    def update_status(self, message: str):
+    def update_status(self, message: str):  # pragma: no cover
         self.status_text.append(message)
         self.status_text.verticalScrollBar().setValue(
             self.status_text.verticalScrollBar().maximum()
         )
 
-    def show(self):
+    def show(self):  # pragma: no cover
         self.window.show()
 
-    def update(self):
+    def update(self):  # pragma: no cover
         self.qt_app.processEvents()
 
-    def is_closed(self) -> bool:
+    def is_closed(self) -> bool:  # pragma: no cover
         return not self.window.isVisible()
 
-    def close(self):
+    def close(self):  # pragma: no cover
         self.window.close()

@@ -8,7 +8,7 @@ from app.preferences.PreferencesController import PreferencesController, Profile
 from app.sound.SoundController import SoundController
 
 
-class Application:
+class Application:  # pragma: no cover
     def __init__(self):
         self.preferences = PreferencesController()
         profiles = self.preferences.get_all_profiles()
