@@ -1,5 +1,6 @@
 import pytest
-import pyautogui
+
+pyautogui = pytest.importorskip("pyautogui")
 
 from app.cursor.CursorController import CursorController
 
