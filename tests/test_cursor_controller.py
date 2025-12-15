@@ -1,4 +1,8 @@
 import pytest
+import os
+
+if "DISPLAY" not in os.environ:
+    pytest.skip("No DISPLAY available", allow_module_level=True)
 
 pyautogui = pytest.importorskip("pyautogui")
 
